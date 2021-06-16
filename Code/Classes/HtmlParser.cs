@@ -19,32 +19,111 @@ namespace WindsorPricesMonitoring.Code.Classes
 			_floorPlanUrl = configuration["FloorPlansUrl"];
 		}
 
-		public IEnumerable<Apartment> GetAndParse()
+		public (IEnumerable<Apartment>, IEnumerable<Unit>) GetAndParse()
+		{
+			var html = Download(_floorPlanUrl);
+
+			var elementsContainsApartments = html.Descendants().Where(CheckIfContainApartmentElement).ToList();
+			var apartmentElements = GetApartmentElements(elementsContainsApartments);
+
+			return ExtractApartmentsAndUnitsFromElements(apartmentElements);
+		}
+
+		private static HtmlNode Download(string url)
 		{
 			using var client = new WebClient();
-			var htmlCode = client.DownloadString(_floorPlanUrl);
+			var htmlCode = client.DownloadString(url);
 
 			var doc = new HtmlDocument();
 			doc.LoadHtml(htmlCode);
-
-			var elementsContainsApartments = doc.DocumentNode.Descendants().Where(CheckIfContainApartmentElement).ToList();
-			var apartmentElements = GetApartmentElements(elementsContainsApartments);
-
-			return ExtractApartmentsFromElements(apartmentElements);
+			return doc.DocumentNode;
 		}
 
-		private static IEnumerable<Apartment> ExtractApartmentsFromElements(IEnumerable<HtmlNode> apartmentElements)
+		private (IEnumerable<Apartment>, IEnumerable<Unit>) ExtractApartmentsAndUnitsFromElements(IEnumerable<HtmlNode> apartmentElements)
 		{
-			return apartmentElements.Select(x =>
-			{
-				var name = GetApartmentName(x);
-				var availability = byte.Parse(GetApartmentAvailability(x)
-					.Replace(Const.Html.Literals.Available, string.Empty).Trim());
-				var rent = GetApartmentRent(x);
-				var price = GetPriceFromSpan(rent);
+			var apartments = new List<Apartment>();
+			var units = new List<Unit>();
 
-				return new Apartment { Name = name, Availability = availability, Rent = price };
-			});
+			foreach (var element in apartmentElements)
+			{
+				var name = GetApartmentName(element);
+				var availability = byte.Parse(GetApartmentAvailability(element)
+					.Replace(Const.Html.Literals.Available, string.Empty).Trim());
+				var rent = GetApartmentRent(element);
+				var price = ParsePrice(rent);
+
+				apartments.Add(new Apartment { Name = name, Availability = availability, Rent = price });
+
+				if (availability > 0)
+				{
+					var unitsLink = GetUnitsLink(element);
+
+					var apartmentUnits = GetAndParseUnits(name, unitsLink).ToList();
+
+					if (apartmentUnits.Any()) units.AddRange(apartmentUnits);
+				}
+			}
+
+			return (apartments, units);
+		}
+
+		private static string GetUnitsLink(HtmlNode element)
+		{
+			return element.Descendants()
+				.Single(x =>
+					x.Name == Const.Html.Elements.Anchor &&
+					x.Attributes.Any(y => y.Name == Const.Html.Attributes.Name && y.Value == Const.Html.Anchors.UnitsPageButton))
+				.Attributes.Single(x => x.Name == Const.Html.Attributes.Href).Value;
+		}
+
+		private IEnumerable<Unit> GetAndParseUnits(string unitType, string unitsLink)
+		{
+			var uri = new Uri(_floorPlanUrl);
+
+			var html = Download($"{uri.Scheme}://{uri.Host}{unitsLink}");
+
+			var unitRows = html.Descendants().Where(x =>
+					x.Name == Const.Html.Elements.TableRow &&
+					HasSeleniumAttributeWithValue(x, Const.Html.Anchors.UnitRow))
+				.ToList();
+
+			foreach (var unit in unitRows)
+			{
+				var fullNumber = GetChildNodesOfSeleniumElement(unit, Const.Html.Anchors.Apartment)
+					.Single(IsNotEmptyText).InnerText.Trim().Trim('#');
+
+				var rent = GetChildNodesOfSeleniumElement(unit, Const.Html.Anchors.Rent)
+					.Single(x => IsNotEmptyText(x) && !x.InnerText.Trim().StartsWith('-')).InnerText.Trim();
+
+				var price = ParsePrice(rent);
+
+				var dateAvailableValue = GetChildNodesOfSeleniumElement(unit, Const.Html.Anchors.DateAvailable)
+					.Single(IsNotEmptyText).InnerText.Trim();
+
+				yield return new Unit
+				{
+					FullNumber = fullNumber, 
+					MinimumPrice = price, 
+					UnitType = unitType,
+					DateAvailable = DateTime.TryParse(dateAvailableValue, out var dateAvailable) ? dateAvailable : null
+				};
+			}
+		}
+
+		private static bool IsNotEmptyText(HtmlNode node)
+		{
+			return node.NodeType == HtmlNodeType.Text && !string.IsNullOrEmpty(node.InnerText.Trim());
+		}
+
+		private static HtmlNodeCollection GetChildNodesOfSeleniumElement(HtmlNode node, string seleniumAttributeValueStartsWith)
+		{
+			return node.Descendants().Single(x => HasSeleniumAttributeWithValue(x, seleniumAttributeValueStartsWith))
+				.ChildNodes;
+		}
+
+		private static bool HasSeleniumAttributeWithValue(HtmlNode node, string value)
+		{
+			return node.Attributes.Any(y => y.Name == Const.Html.Attributes.SeleniumAttribute && y.Value.StartsWith(value));
 		}
 
 		private static string GetApartmentName(HtmlNode apartment)
@@ -86,7 +165,7 @@ namespace WindsorPricesMonitoring.Code.Classes
 			return priceSpans.Where(x => !x.ChildNodes.Any(priceSpans.Contains));
 		}
 
-		private static short? GetPriceFromSpan(string priceSpan)
+		private static short? ParsePrice(string priceSpan)
 		{
 			var dollarSignIndex = priceSpan.IndexOf("$", StringComparison.InvariantCulture);
 			if (dollarSignIndex >= 0) priceSpan = priceSpan[(dollarSignIndex + 1)..];

@@ -5,6 +5,6 @@ namespace WindsorPricesMonitoring.Interfaces
 {
 	public interface IHtmlParser
 	{
-		IEnumerable<Apartment> GetAndParse();
+		(IEnumerable<Apartment>, IEnumerable<Unit>) GetAndParse();
 	}
 }

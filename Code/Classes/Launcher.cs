@@ -1,4 +1,4 @@
-﻿using System.Linq;
+﻿using System;
 using System.Threading.Tasks;
 using WindsorPricesMonitoring.Interfaces;
 
@@ -17,9 +17,17 @@ namespace WindsorPricesMonitoring.Code.Classes
 
 		public async Task Launch()
 		{
-			var apartments = _htmlParser.GetAndParse().ToList();
+			try
+			{
+				var (apartments, units) = _htmlParser.GetAndParse();
 
-			await _repository.SaveApartmentsDataForToday(apartments);
+				await _repository.SaveApartmentsDataForToday(apartments);
+			}
+			catch (Exception e)
+			{
+				Console.WriteLine(e);
+				throw;
+			}
 		}
 	}
 }

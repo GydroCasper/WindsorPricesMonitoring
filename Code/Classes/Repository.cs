@@ -26,7 +26,7 @@ namespace WindsorPricesMonitoring.Code.Classes
 			return _apartmentTypes ??= await _db.ApartmentTypes.Select(x => new ApartmentType {Id = x.Id, Name = x.Name}).ToListAsync();
 		}
 
-		public async Task SaveApartmentsDataForToday(List<Apartment> apartments)
+		public async Task SaveApartmentsDataForToday(IEnumerable<Apartment> apartments)
 		{
 			var lastPrices = await _db.LastApartmentAvailability.ToListAsync();
 			var apartmentTypes = await GetApartmentTypes();
