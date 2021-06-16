@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using HtmlAgilityPack;
+using Microsoft.Extensions.Configuration;
 using WindsorPricesMonitoring.Code.Constants;
 using WindsorPricesMonitoring.Code.Dto;
 using WindsorPricesMonitoring.Interfaces;
@@ -11,12 +12,17 @@ namespace WindsorPricesMonitoring.Code.Classes
 {
 	public class HtmlParser: IHtmlParser
 	{
+		private readonly string _floorPlanUrl;
+
+		public HtmlParser(IConfiguration configuration)
+		{
+			_floorPlanUrl = configuration["FloorPlansUrl"];
+		}
+
 		public IEnumerable<Apartment> GetAndParse()
 		{
-			var urlAddress = "https://www.windsoratoakgrove.com/floorplans";
-
 			using var client = new WebClient();
-			var htmlCode = client.DownloadString(urlAddress);
+			var htmlCode = client.DownloadString(_floorPlanUrl);
 
 			var doc = new HtmlDocument();
 			doc.LoadHtml(htmlCode);

@@ -29,6 +29,13 @@ namespace WindsorPricesMonitoring
 				.AddTransient<IHtmlParser, HtmlParser>()
 				.AddScoped<IRepository, Repository>();
 
+			Configure(services);
+
+			return services.BuildServiceProvider();
+		}
+
+		private static void Configure(IServiceCollection services)
+		{
 			var environmentName = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
 
 			var configuration = new ConfigurationBuilder()
@@ -39,7 +46,7 @@ namespace WindsorPricesMonitoring
 			services.AddDbContext<WindsorPricesMonitoringDbContext>(options =>
 				options.UseSqlServer(configuration.GetConnectionString("WindsorPricesMonitoring")));
 
-			return services.BuildServiceProvider();
+			services.AddScoped<IConfiguration>(_ => configuration);
 		}
 	}
 }
