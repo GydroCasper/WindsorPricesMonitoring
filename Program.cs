@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Configuration;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using WindsorPricesMonitoring.Code.Classes;
 using WindsorPricesMonitoring.Code.Model;
@@ -27,8 +29,15 @@ namespace WindsorPricesMonitoring
 				.AddTransient<IHtmlParser, HtmlParser>()
 				.AddScoped<IRepository, Repository>();
 
+			var environmentName = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+
+			var configuration = new ConfigurationBuilder()
+				.AddJsonFile("appsettings.json", true, true)
+				.AddJsonFile($"appsetings.{environmentName}.json", true, true)
+				.Build();
+
 			services.AddDbContext<WindsorPricesMonitoringDbContext>(options =>
-				options.UseSqlServer(@"Server=.\;Database=WindsorMonitoring;User Id=ModernUser;Password=qwerty;"));
+				options.UseSqlServer(configuration.GetConnectionString("WindsorPricesMonitoring")));
 
 			return services.BuildServiceProvider();
 		}
