@@ -6,6 +6,6 @@ namespace WindsorPricesMonitoring.Interfaces
 {
 	public interface IRepository
 	{
-		Task SaveApartmentsDataForToday(IEnumerable<Apartment> apartments);
+		Task SaveDataForToday(IEnumerable<Apartment> apartments, IEnumerable<Unit> units);
 	}
 }

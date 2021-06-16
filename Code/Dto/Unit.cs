@@ -8,5 +8,6 @@ namespace WindsorPricesMonitoring.Code.Dto
 		public string UnitType;
 		public short? MinimumPrice;
 		public DateTime? DateAvailable;
+		public short Area;
 	}
 }

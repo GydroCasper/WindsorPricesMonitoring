@@ -2,13 +2,14 @@
 
 namespace WindsorPricesMonitoring.Code.Model
 {
-	public class LastApartmentAvailability
+	public class LastUnitAvailability
 	{
 		public Guid Id { get; set; }
-		public string Type { get; set; }
+		public string FullNumber { get; set; }
 		public Guid TypeId { get; set; }
 		public DateTime Date { get; set; }
-		public byte Available { get; set; }
+		public DateTime? DateAvailable { get; set; }
+		public bool IsAvailable { get; set; }
 		public short? MinimumPrice { get; set; }
 	}
 }

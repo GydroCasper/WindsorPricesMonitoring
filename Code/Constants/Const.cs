@@ -14,6 +14,7 @@
 				public static readonly string UnitRow = "urow";
 				public static readonly string Apartment = "Apt";
 				public static readonly string DateAvailable = "AvailDate";
+				public static readonly string Sqft = "Sqft";
 			}
 
 			public static class Literals

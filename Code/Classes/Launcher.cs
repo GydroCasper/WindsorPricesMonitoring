@@ -21,7 +21,7 @@ namespace WindsorPricesMonitoring.Code.Classes
 			{
 				var (apartments, units) = _htmlParser.GetAndParse();
 
-				await _repository.SaveApartmentsDataForToday(apartments);
+				await _repository.SaveDataForToday(apartments, units);
 			}
 			catch (Exception e)
 			{

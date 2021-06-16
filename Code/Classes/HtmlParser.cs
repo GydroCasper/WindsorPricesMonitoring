@@ -97,17 +97,23 @@ namespace WindsorPricesMonitoring.Code.Classes
 
 				var price = ParsePrice(rent);
 
-				var dateAvailableValue = GetChildNodesOfSeleniumElement(unit, Const.Html.Anchors.DateAvailable)
-					.Single(IsNotEmptyText).InnerText.Trim();
+				var dateAvailableValue = GetValueOfChildSeleniumNode(unit, Const.Html.Anchors.DateAvailable);
+				var area = GetValueOfChildSeleniumNode(unit, Const.Html.Anchors.Sqft);
 
 				yield return new Unit
 				{
 					FullNumber = fullNumber, 
 					MinimumPrice = price, 
 					UnitType = unitType,
-					DateAvailable = DateTime.TryParse(dateAvailableValue, out var dateAvailable) ? dateAvailable : null
+					DateAvailable = DateTime.TryParse(dateAvailableValue, out var dateAvailable) ? dateAvailable : null,
+					Area = short.Parse(area)
 				};
 			}
+		}
+
+		private static string GetValueOfChildSeleniumNode(HtmlNode unit, string seleniumAttributeValueStartsWith)
+		{
+			return GetChildNodesOfSeleniumElement(unit, seleniumAttributeValueStartsWith).Single(IsNotEmptyText).InnerText.Trim();
 		}
 
 		private static bool IsNotEmptyText(HtmlNode node)
@@ -126,20 +132,11 @@ namespace WindsorPricesMonitoring.Code.Classes
 			return node.Attributes.Any(y => y.Name == Const.Html.Attributes.SeleniumAttribute && y.Value.StartsWith(value));
 		}
 
-		private static string GetApartmentName(HtmlNode apartment)
-		{
-			return GetValueOfElement(apartment, Const.Html.Anchors.Name);
-		}
+		private static string GetApartmentName(HtmlNode apartment) => GetValueOfElement(apartment, Const.Html.Anchors.Name);
 
-		private static string GetApartmentAvailability(HtmlNode apartment)
-		{
-			return GetValueOfElement(apartment, Const.Html.Anchors.Availability);
-		}
+		private static string GetApartmentAvailability(HtmlNode apartment) => GetValueOfElement(apartment, Const.Html.Anchors.Availability);
 
-		private static string GetApartmentRent(HtmlNode apartment)
-		{
-			return GetValueOfElement(apartment, Const.Html.Anchors.Rent);
-		}
+		private static string GetApartmentRent(HtmlNode apartment) =>  GetValueOfElement(apartment, Const.Html.Anchors.Rent);
 
 		private static string GetValueOfElement(HtmlNode apartment, string endsOn)
 		{

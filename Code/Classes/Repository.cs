@@ -15,6 +15,7 @@ namespace WindsorPricesMonitoring.Code.Classes
 		private readonly WindsorPricesMonitoringDbContext _db;
 
 		private List<ApartmentType> _apartmentTypes;
+		private List<IndividualApartmentType> _unitTypes;
 
 		public Repository(WindsorPricesMonitoringDbContext db)
 		{
@@ -26,7 +27,101 @@ namespace WindsorPricesMonitoring.Code.Classes
 			return _apartmentTypes ??= await _db.ApartmentTypes.Select(x => new ApartmentType {Id = x.Id, Name = x.Name}).ToListAsync();
 		}
 
-		public async Task SaveApartmentsDataForToday(IEnumerable<Apartment> apartments)
+		private async Task<List<IndividualApartmentType>> GetUnitTypes()
+		{
+			return _unitTypes ??= await _db.IndividualApartmentTypes
+				.Select(x => new IndividualApartmentType {Id = x.Id, FullNumber = x.FullNumber}).ToListAsync();
+		}
+
+		public async Task SaveDataForToday(IEnumerable<Apartment> apartments, IEnumerable<Unit> units)
+		{
+			await SaveApartmentsDataForToday(apartments);
+			await SaveUnitsDataForToday(units);
+		}
+
+		private async Task SaveUnitsDataForToday(IEnumerable<Unit> units)
+		{
+			var lastPrices = await _db.LastUnitAvailability.ToListAsync();
+			var unitTypes = await GetUnitTypes();
+
+			var unitsToAdd = new List<IndividualApartmentAvailability>();
+			var unitTypesToAdd = new List<IndividualApartmentType>();
+
+			foreach (var unit in units)
+			{
+				if (IfUnitDataChanged(lastPrices, unit) ||
+				    IfUnavailableUnitBecameAvailable(lastPrices, unit.FullNumber))
+				{
+					var typeId = unitTypes.SingleOrDefault(x => x.FullNumber == unit.FullNumber)?.Id;
+
+					if (!typeId.HasValue)
+					{
+						typeId = Guid.NewGuid();
+						var apartmentTypes = await GetApartmentTypes();
+						unitTypesToAdd.Add(new IndividualApartmentType
+						{
+							Id = typeId.Value,
+							FullNumber = unit.FullNumber,
+							Sqft = unit.Area,
+							TypeId = apartmentTypes.Single(x => x.Name == unit.UnitType).Id
+						});
+					}
+
+					if (!unit.DateAvailable.HasValue)
+					{
+						var lastAvailableDate = _db.IndividualApartmentAvailability.Where(x =>
+								x.IndividualApartmentTypeId == typeId && x.IsAvailable && x.DateAvailable != null &&
+								!_db.IndividualApartmentAvailability.Any(y =>
+									!y.IsAvailable &&
+									y.Date > x.Date &&
+									y.IndividualApartmentTypeId == x.IndividualApartmentTypeId))
+							.OrderByDescending(x => x.DateAvailable).FirstOrDefault();
+
+						if (lastAvailableDate?.DateAvailable != null)
+						{
+							unit.DateAvailable = lastAvailableDate.DateAvailable.Value;
+						}
+					}
+
+					unitsToAdd.Add(new IndividualApartmentAvailability
+					{
+						IndividualApartmentTypeId = typeId.Value,
+						MinimumPrice = unit.MinimumPrice,
+						DateAvailable = unit.DateAvailable,
+						IsAvailable = true,
+						Date = DateTime.Now
+					});
+				}
+			}
+
+			if (unitTypesToAdd.Any())
+			{
+				_db.IndividualApartmentTypes.AddRange(unitTypesToAdd);
+				await _db.SaveChangesAsync();
+			}
+
+			if (unitsToAdd.Any())
+			{
+				_db.IndividualApartmentAvailability.AddRange(unitsToAdd);
+				await _db.SaveChangesAsync();
+			}
+		}
+
+		private static bool IfUnavailableUnitBecameAvailable(IEnumerable<LastUnitAvailability> lastPrices, string fullNumber)
+		{
+			return lastPrices.Any(x => x.FullNumber == fullNumber && !x.IsAvailable);
+		}
+
+		private static bool IfUnitDataChanged(IEnumerable<LastUnitAvailability> lastPrices, Unit unit)
+		{
+			return !lastPrices.Any(x =>
+				x.FullNumber == unit.FullNumber &&
+				x.DateAvailable == unit.DateAvailable &&
+				x.MinimumPrice == unit.MinimumPrice &&
+				x.IsAvailable);
+		}
+
+		private async Task SaveApartmentsDataForToday(IEnumerable<Apartment> apartments)
 		{
 			var lastPrices = await _db.LastApartmentAvailability.ToListAsync();
 			var apartmentTypes = await GetApartmentTypes();
@@ -36,7 +131,7 @@ namespace WindsorPricesMonitoring.Code.Classes
 			foreach (var apartment in apartments)
 			{
 				if (!lastPrices.Any(x =>
-					x.Type == apartment.Name && 
+					x.Type == apartment.Name &&
 					x.Available == apartment.Availability &&
 					x.MinimumPrice == apartment.Rent))
 				{
@@ -44,8 +139,8 @@ namespace WindsorPricesMonitoring.Code.Classes
 
 					apartmentsToAdd.Add(new ApartmentTypeAvailability
 					{
-						Available = apartment.Availability, 
-						Date = DateTime.Now, 
+						Available = apartment.Availability,
+						Date = DateTime.Now,
 						MinimumPrice = apartment.Rent,
 						TypeId = typeId
 					});
