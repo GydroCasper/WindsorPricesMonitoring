@@ -4,6 +4,8 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Serilog;
 using WindsorPricesMonitoring.Code.Classes;
 using WindsorPricesMonitoring.Code.Model;
 using WindsorPricesMonitoring.Interfaces;
@@ -24,14 +26,27 @@ namespace WindsorPricesMonitoring
 		private static IServiceProvider ConfigureServices()
 		{
 			var services = new ServiceCollection()
-				.AddLogging()
 				.AddTransient<ILauncher, Launcher>()
 				.AddTransient<IHtmlParser, HtmlParser>()
 				.AddScoped<IRepository, Repository>();
 
 			Configure(services);
 
+			ConfigureLogging(services);
+
 			return services.BuildServiceProvider();
+		}
+
+		private static void ConfigureLogging(IServiceCollection services)
+		{
+			services.AddLogging(loggingBuilder => loggingBuilder.AddSerilog(dispose: true));
+
+			Log.Logger = new LoggerConfiguration()
+				.Enrich.FromLogContext()
+				.MinimumLevel.Information()
+				.WriteTo.Console()
+				.WriteTo.File(@"C:\log\log.txt", rollingInterval: RollingInterval.Day)
+				.CreateLogger();
 		}
 
 		private static void Configure(IServiceCollection services)
