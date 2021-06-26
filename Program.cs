@@ -1,10 +1,8 @@
 ﻿using System;
-using System.Configuration;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Serilog;
 using WindsorPricesMonitoring.Code.Classes;
 using WindsorPricesMonitoring.Code.Model;

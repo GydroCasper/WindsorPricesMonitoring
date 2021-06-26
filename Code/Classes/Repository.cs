@@ -33,13 +33,13 @@ namespace WindsorPricesMonitoring.Code.Classes
 				.Select(x => new IndividualApartmentType {Id = x.Id, FullNumber = x.FullNumber}).ToListAsync();
 		}
 
-		public async Task SaveDataForToday(IEnumerable<Apartment> apartments, IEnumerable<Unit> units)
+		public async Task SaveDataForToday(IEnumerable<Apartment> apartments, IList<Unit> units)
 		{
 			await SaveApartmentsDataForToday(apartments);
 			await SaveUnitsDataForToday(units);
 		}
 
-		private async Task SaveUnitsDataForToday(IEnumerable<Unit> units)
+		private async Task SaveUnitsDataForToday(IList<Unit> units)
 		{
 			var lastPrices = await _db.LastUnitAvailability.ToListAsync();
 			var unitTypes = await GetUnitTypes();
@@ -94,6 +94,10 @@ namespace WindsorPricesMonitoring.Code.Classes
 				}
 			}
 
+			unitsToAdd.AddRange(lastPrices.Where(x => x.IsAvailable && units.All(y => y.FullNumber != x.FullNumber))
+				.Select(x => new IndividualApartmentAvailability
+					{IndividualApartmentTypeId = x.TypeId, Date = DateTime.Now, IsAvailable = false}));
+
 			if (unitTypesToAdd.Any())
 			{
 				_db.IndividualApartmentTypes.AddRange(unitTypesToAdd);
@@ -102,6 +106,9 @@ namespace WindsorPricesMonitoring.Code.Classes
 
 			if (unitsToAdd.Any())
 			{
+				var todayUnits = _db.IndividualApartmentAvailability.Where(x => x.Date == DateTime.Today);
+				_db.IndividualApartmentAvailability.RemoveRange(todayUnits);
+
 				_db.IndividualApartmentAvailability.AddRange(unitsToAdd);
 				await _db.SaveChangesAsync();
 			}

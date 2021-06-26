@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using WindsorPricesMonitoring.Interfaces;
@@ -25,7 +26,7 @@ namespace WindsorPricesMonitoring.Code.Classes
 				_logger.LogInformation("The program is started");
 				var (apartments, units) = _htmlParser.GetAndParse();
 
-				await _repository.SaveDataForToday(apartments, units);
+				await _repository.SaveDataForToday(apartments, units.ToList());
 
 				_logger.LogInformation("The program is finished successfully");
 			}
