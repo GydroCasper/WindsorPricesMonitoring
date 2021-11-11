@@ -57,7 +57,10 @@ namespace WindsorPricesMonitoring
 				.Build();
 
 			services.AddDbContext<WindsorPricesMonitoringDbContext>(options =>
-				options.UseSqlServer(configuration.GetConnectionString("WindsorPricesMonitoring")));
+				options.UseSqlServer(configuration.GetConnectionString("WindsorPricesMonitoring"), builder =>
+				{
+					builder.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null);
+				}));
 
 			services.AddScoped<IConfiguration>(_ => configuration);
 		}
